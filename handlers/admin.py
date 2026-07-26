@@ -48,6 +48,11 @@ class Broadcast(StatesGroup):
     waiting_message = State()
 
 
+class AddChannel(StatesGroup):
+    waiting_forward = State()
+    waiting_invite_link = State()
+
+
 # ---------------------------------------------------------------
 # ADMIN PANEL KIRISH
 # ---------------------------------------------------------------
@@ -65,7 +70,7 @@ async def open_admin_panel(message: Message, state: FSMContext):
 
 @router.message(
     F.text == "❌ Bekor qilish",
-    StateFilter(AddAnime, AddEpisode, EditAnime, DeleteAnime, Broadcast),
+    StateFilter(AddAnime, AddEpisode, EditAnime, DeleteAnime, Broadcast, AddChannel),
 )
 async def cancel_any(message: Message, state: FSMContext):
     if not is_admin(message.from_user.id):
@@ -404,3 +409,126 @@ async def broadcast_send(message: Message, state: FSMContext, bot: Bot):
         await asyncio.sleep(0.05)
 
     await message.answer(f"✅ Yuborildi: {success} ta\n❌ Yuborilmadi: {failed} ta")
+
+
+# =================================================================
+# 🔐 MAJBURIY OBUNA
+# =================================================================
+@router.message(F.text == "🔐 Majburiy obuna")
+async def obuna_menu(message: Message, state: FSMContext):
+    if not is_admin(message.from_user.id):
+        return
+    await state.clear()
+    count = await db.count_channels()
+    await message.answer(
+        f"🔐 <b>Majburiy obuna sozlamalari</b>\n\n"
+        f"Hozir <b>{count}</b> ta kanal ulangan. Yangi foydalanuvchilar botdan "
+        f"foydalanishdan oldin shu kanal(lar)ga a'zo bo'lishi shart bo'ladi.",
+        reply_markup=kb.obuna_menu_kb(),
+    )
+
+
+@router.message(F.text == "⬅️ Admin panel")
+async def back_to_admin_panel(message: Message, state: FSMContext):
+    if not is_admin(message.from_user.id):
+        return
+    await state.clear()
+    await message.answer("🛠 Admin panel:", reply_markup=kb.admin_menu_kb())
+
+
+@router.message(F.text == "➕ Kanal qo'shish")
+async def add_channel_start(message: Message, state: FSMContext):
+    if not is_admin(message.from_user.id):
+        return
+    await state.set_state(AddChannel.waiting_forward)
+    await message.answer(
+        "📢 Kanal qo'shish uchun:\n\n"
+        "1️⃣ Botni o'sha kanalga <b>admin</b> qilib qo'ying\n"
+        "2️⃣ Kanaldagi istalgan postni shu yerga <b>forward</b> qiling\n\n"
+        "(Kanal nomi yoki ID sini yozish shart emas — aynan forward qilingan "
+        "xabarni yuboring)",
+        reply_markup=kb.cancel_kb(),
+    )
+
+
+@router.message(AddChannel.waiting_forward)
+async def add_channel_forward(message: Message, state: FSMContext):
+    chat = message.forward_from_chat
+    if not chat or chat.type != "channel":
+        await message.answer(
+            "❗️ Bu forward qilingan kanal posti emas. Kanaldan xabarni forward qiling, "
+            "yoki ❌ Bekor qilish tugmasini bosing."
+        )
+        return
+
+    channel_id = str(chat.id)
+    title = chat.title
+
+    if chat.username:
+        invite_link = f"https://t.me/{chat.username}"
+        await db.add_channel(channel_id, title, invite_link)
+        await state.clear()
+        await message.answer(
+            f"✅ <b>{title}</b> majburiy obuna ro'yxatiga qo'shildi!",
+            reply_markup=kb.obuna_menu_kb(),
+        )
+        return
+
+    # Yopiq (private) kanal — taklif havolasi kerak
+    await state.update_data(channel_id=channel_id, title=title)
+    await state.set_state(AddChannel.waiting_invite_link)
+    await message.answer(
+        f"🔒 <b>{title}</b> — yopiq (private) kanal ekan.\n\n"
+        f"Bunday kanallar uchun taklif havolasi (invite link) kerak bo'ladi. "
+        f"Kanal sozlamalari → Havola yaratish orqali oling va shu yerga yuboring "
+        f"(masalan: https://t.me/+AbCdEfGhIjK):",
+        reply_markup=kb.cancel_kb(),
+    )
+
+
+@router.message(AddChannel.waiting_invite_link)
+async def add_channel_invite_link(message: Message, state: FSMContext):
+    link = message.text.strip() if message.text else ""
+    if not link.startswith("https://t.me/"):
+        await message.answer("❗️ Havola https://t.me/ bilan boshlanishi kerak. Qaytadan yuboring:")
+        return
+    data = await state.get_data()
+    await db.add_channel(data["channel_id"], data["title"], link)
+    await state.clear()
+    await message.answer(
+        f"✅ <b>{data['title']}</b> majburiy obuna ro'yxatiga qo'shildi!",
+        reply_markup=kb.obuna_menu_kb(),
+    )
+
+
+@router.message(F.text == "📋 Kanallar ro'yxati")
+async def list_channels(message: Message):
+    if not is_admin(message.from_user.id):
+        return
+    channels = await db.get_all_channels()
+    if not channels:
+        await message.answer("📋 Hozircha majburiy obuna kanallari yo'q.")
+        return
+    await message.answer(
+        f"📋 <b>Majburiy obuna kanallari</b> ({len(channels)} ta)\n\n"
+        f"O'chirish uchun kerakli kanal ustiga bosing:",
+        reply_markup=kb.channels_list_kb(channels),
+    )
+
+
+@router.callback_query(kb.ChannelCB.filter(F.action == "delete"))
+async def delete_channel_cb(callback: CallbackQuery, callback_data: kb.ChannelCB):
+    if not is_admin(callback.from_user.id):
+        await callback.answer()
+        return
+    await db.delete_channel(callback_data.id)
+    channels = await db.get_all_channels()
+    if channels:
+        await callback.message.edit_text(
+            f"📋 <b>Majburiy obuna kanallari</b> ({len(channels)} ta)\n\n"
+            f"O'chirish uchun kerakli kanal ustiga bosing:",
+            reply_markup=kb.channels_list_kb(channels),
+        )
+    else:
+        await callback.message.edit_text("📋 Hozircha majburiy obuna kanallari yo'q.")
+    await callback.answer("🗑 O'chirildi")

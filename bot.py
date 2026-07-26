@@ -11,6 +11,7 @@ from aiohttp import web
 from config import BOT_TOKEN
 import database as db
 from handlers import user, admin
+from middlewares import ForceSubMiddleware
 
 
 # ---------------------------------------------------------------
@@ -57,6 +58,10 @@ async def main():
 
     bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     dp = Dispatcher(storage=MemoryStorage())
+
+    # Majburiy obuna middleware — har bir xabar/tugma bosilishida ishlaydi
+    dp.message.middleware(ForceSubMiddleware())
+    dp.callback_query.middleware(ForceSubMiddleware())
 
     # Admin router birinchi ulanadi (admin tugmalari user routerdagi
     # umumiy matn handlerlaridan oldin ushlanishi uchun)

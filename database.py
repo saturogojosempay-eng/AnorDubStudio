@@ -77,6 +77,17 @@ async def init_db():
         )
         """
     )
+    await client.execute(
+        """
+        CREATE TABLE IF NOT EXISTS channels (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            channel_id TEXT NOT NULL,
+            title TEXT NOT NULL,
+            invite_link TEXT NOT NULL,
+            added_at TEXT
+        )
+        """
+    )
 
 
 # ---------------------------------------------------------------
@@ -259,3 +270,31 @@ async def get_favorites(user_id: int):
         [user_id],
     )
     return _rows_to_dicts(rs)
+
+
+# ---------------------------------------------------------------
+# MAJBURIY OBUNA KANALLARI
+# ---------------------------------------------------------------
+async def add_channel(channel_id: str, title: str, invite_link: str):
+    client = get_client()
+    await client.execute(
+        "INSERT INTO channels (channel_id, title, invite_link, added_at) VALUES (?, ?, ?, ?)",
+        [channel_id, title, invite_link, datetime.now().isoformat()],
+    )
+
+
+async def get_all_channels():
+    client = get_client()
+    rs = await client.execute("SELECT * FROM channels ORDER BY id ASC")
+    return _rows_to_dicts(rs)
+
+
+async def delete_channel(channel_row_id: int):
+    client = get_client()
+    await client.execute("DELETE FROM channels WHERE id = ?", [channel_row_id])
+
+
+async def count_channels() -> int:
+    client = get_client()
+    rs = await client.execute("SELECT COUNT(*) FROM channels")
+    return rs.rows[0][0]

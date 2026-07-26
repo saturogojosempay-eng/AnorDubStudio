@@ -38,6 +38,11 @@ class ConfirmCB(CallbackData, prefix="confirm"):
     id: int
 
 
+class ChannelCB(CallbackData, prefix="channel"):
+    id: int
+    action: str  # delete
+
+
 # ---------------------------------------------------------------
 # REPLY (pastki) MENYULAR
 # ---------------------------------------------------------------
@@ -55,7 +60,16 @@ def admin_menu_kb() -> ReplyKeyboardMarkup:
     b.row(KeyboardButton(text="➕ Anime qo'shish"), KeyboardButton(text="🎬 Qism qo'shish"))
     b.row(KeyboardButton(text="✏️ Tahrirlash"), KeyboardButton(text="🗑 Anime o'chirish"))
     b.row(KeyboardButton(text="📊 Statistika"), KeyboardButton(text="📢 Xabar yuborish"))
+    b.row(KeyboardButton(text="🔐 Majburiy obuna"))
     b.row(KeyboardButton(text="⬅️ Bosh menyu"))
+    return b.as_markup(resize_keyboard=True)
+
+
+def obuna_menu_kb() -> ReplyKeyboardMarkup:
+    b = ReplyKeyboardBuilder()
+    b.row(KeyboardButton(text="➕ Kanal qo'shish"))
+    b.row(KeyboardButton(text="📋 Kanallar ro'yxati"))
+    b.row(KeyboardButton(text="⬅️ Admin panel"))
     return b.as_markup(resize_keyboard=True)
 
 
@@ -173,5 +187,22 @@ def status_choice_kb() -> InlineKeyboardMarkup:
     b = InlineKeyboardBuilder()
     b.button(text="🟢 Davom etmoqda", callback_data="status_Davom etmoqda")
     b.button(text="✅ Nihoyasiga yetgan", callback_data="status_Nihoyasiga yetgan")
+    b.adjust(1)
+    return b.as_markup()
+
+
+def channels_list_kb(channels) -> InlineKeyboardMarkup:
+    b = InlineKeyboardBuilder()
+    for ch in channels:
+        b.button(text=f"❌ {ch['title']}", callback_data=ChannelCB(id=ch["id"], action="delete"))
+    b.adjust(1)
+    return b.as_markup()
+
+
+def force_sub_kb(channels) -> InlineKeyboardMarkup:
+    b = InlineKeyboardBuilder()
+    for ch in channels:
+        b.button(text=f"➕ {ch['title']}", url=ch["invite_link"])
+    b.button(text="✅ A'zo bo'ldim", callback_data="check_sub")
     b.adjust(1)
     return b.as_markup()

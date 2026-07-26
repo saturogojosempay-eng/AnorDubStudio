@@ -8,6 +8,7 @@ from aiogram.exceptions import TelegramBadRequest
 
 import database as db
 import keyboards as kb
+from subscription import get_missing_channels
 from config import ADMIN_IDS, WELCOME_TEXT, STUDIO_NAME, ANIME_PER_PAGE, EPISODES_PER_PAGE
 
 router = Router()
@@ -30,6 +31,26 @@ async def cmd_start(message: Message, state: FSMContext):
     await db.add_user(message.from_user.id, message.from_user.username, message.from_user.full_name)
     text = WELCOME_TEXT.format(studio=STUDIO_NAME)
     await message.answer(text, reply_markup=kb.main_menu_kb(is_admin(message.from_user.id)))
+
+
+@router.callback_query(F.data == "check_sub")
+async def cb_check_sub(callback: CallbackQuery):
+    missing = await get_missing_channels(callback.bot, callback.from_user.id)
+    if missing:
+        await callback.answer(
+            "❗️ Hali barcha kanallarga a'zo bo'lmagansiz. A'zo bo'lgach, qaytadan urinib ko'ring.",
+            show_alert=True,
+        )
+        return
+
+    await db.add_user(callback.from_user.id, callback.from_user.username, callback.from_user.full_name)
+    try:
+        await callback.message.delete()
+    except TelegramBadRequest:
+        pass
+    text = WELCOME_TEXT.format(studio=STUDIO_NAME)
+    await callback.message.answer(text, reply_markup=kb.main_menu_kb(is_admin(callback.from_user.id)))
+    await callback.answer("✅ Rahmat!")
 
 
 @router.message(F.text == "⬅️ Bosh menyu")
