@@ -1,18 +1,40 @@
 # ============================================================
 #  UzumDub Studio Bot — Konfiguratsiya
 # ============================================================
-# 1) @BotFather dan olingan tokenni pastga qo'ying
-# 2) O'zingizning Telegram ID raqamingizni ADMIN_IDS ro'yxatiga qo'shing
-#    (ID ni bilmasangiz @userinfobot ga /start yozing)
+# LOKAL kompyuterda ishlatish uchun: pastdagi os.environ.get(...)
+# ichidagi ikkinchi qiymatlarni o'zingizning haqiqiy
+# ma'lumotlaringiz bilan almashtirishingiz mumkin.
+#
+# RENDER (yoki boshqa server) uchun: hech narsani bu faylda
+# o'zgartirmang! Buning o'rniga Render dashboardida
+# "Environment" bo'limiga quyidagi qiymatlarni environment
+# variable sifatida qo'shing:
+#   BOT_TOKEN, ADMIN_IDS, TURSO_DATABASE_URL, TURSO_AUTH_TOKEN
+# Shunda kod ichida maxfiy ma'lumotlar saqlanmaydi va GitHub'ga
+# xavfsiz push qilinadi.
 # ============================================================
 
-BOT_TOKEN = "8005337101:AAErrzx_y3SaBJB9lGquGXHCvjRsBN9yfN0"
+import os
 
-ADMIN_IDS = [
-    8888728779
-]
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "PASTE_YOUR_BOT_TOKEN_HERE")
 
-DB_NAME = "uzumdub.db"
+# ADMIN_IDS environment variable orqali keladi, masalan: "123456789,987654321"
+_admin_ids_raw = os.environ.get("ADMIN_IDS", "123456789")
+ADMIN_IDS = [int(x.strip()) for x in _admin_ids_raw.split(",") if x.strip()]
+
+# ---------------------------------------------------------------
+# Turso (libSQL) — bulutli, bepul va doimiy ma'lumotlar bazasi.
+# Render qayta deploy qilinganda ham ma'lumotlar o'chib ketmaydi.
+# turso.tech saytida bazangizni yaratganingizda beriladigan
+# manzil va tokenni shu yerga (yoki Render Environment'ga) kiriting.
+#
+# Agar mahalliy kompyuterda, internet bazasisiz sinab ko'rmoqchi
+# bo'lsangiz, TURSO_DATABASE_URL ni "file:uzumdub.db" qilib
+# qoldiring — bu holda oddiy lokal fayl ishlatiladi (Render'da
+# BUNI QILMANG, aks holda yana ma'lumot o'chib turadi).
+# ---------------------------------------------------------------
+TURSO_DATABASE_URL = os.environ.get("TURSO_DATABASE_URL", "file:uzumdub.db")
+TURSO_AUTH_TOKEN = os.environ.get("TURSO_AUTH_TOKEN", "")
 
 STUDIO_NAME = "UzumDub Studio"
 
