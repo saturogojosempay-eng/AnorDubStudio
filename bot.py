@@ -1,21 +1,45 @@
 import asyncio
 import logging
+import os
 
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
+from aiohttp import web
 
 from config import BOT_TOKEN
 import database as db
 from handlers import user, admin
 
 
+# ---------------------------------------------------------------
+# Render (yoki boshqa hosting) botni "uxlab qolishdan" saqlash uchun
+# juda kichik veb-server. UptimeRobot shu manzilga muntazam so'rov
+# yuborib turadi, Render esa "trafik bor" deb hisoblab, xizmatni
+# uyg'oq ushlab turadi. Bot funksionalligiga bu hech qanday
+# ta'sir qilmaydi — Telegram bilan aloqa alohida ishlaydi.
+# ---------------------------------------------------------------
+async def handle_ping(request):
+    return web.Response(text="🍥 UzumDub Studio bot ishlayapti!")
+
+
+async def start_web_server():
+    app = web.Application()
+    app.router.add_get("/", handle_ping)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    port = int(os.environ.get("PORT", 8080))
+    site = web.TCPSite(runner, "0.0.0.0", port)
+    await site.start()
+    print(f"🌐 Ping-server {port}-portda ishga tushdi")
+
+
 async def main():
     logging.basicConfig(level=logging.INFO)
 
     if BOT_TOKEN == "PASTE_YOUR_BOT_TOKEN_HERE":
-        print("❗️ config.py faylida BOT_TOKEN ni to'g'ri kiriting!")
+        print("❗️ BOT_TOKEN topilmadi! config.py yoki environment variable orqali kiriting.")
         return
 
     await db.init_db()
@@ -29,6 +53,10 @@ async def main():
     dp.include_router(user.router)
 
     await bot.delete_webhook(drop_pending_updates=True)
+
+    # Ping-server va Telegram polling parallel ishga tushadi
+    await start_web_server()
+
     print("🍥 UzumDub Studio bot ishga tushdi...")
     await dp.start_polling(bot)
 
