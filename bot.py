@@ -1,4 +1,4 @@
-import asyncio
+ķĥimport asyncio
 import logging
 import os
 
@@ -74,8 +74,11 @@ async def main():
         print(f"⚠️ delete_webhook xatosi (davom etamiz): {e}")
 
     print("🍥 UzumDub Studio bot ishga tushdi...")
-    await dp.start_polling(bot)
-
+            try:
+        await dp.start_polling(bot)
+    finally:
+        await bot.session.close()
+        
 
 if __name__ == "__main__":
     try:
