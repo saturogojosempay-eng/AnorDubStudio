@@ -74,11 +74,10 @@ async def main():
         print(f"⚠️ delete_webhook xatosi (davom etamiz): {e}")
 
     print("🍥 UzumDub Studio bot ishga tushdi...")
-            try:
+    try:
         await dp.start_polling(bot)
     finally:
         await bot.session.close()
-        
 
 if __name__ == "__main__":
     try:
